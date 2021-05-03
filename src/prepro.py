@@ -24,6 +24,13 @@ class TranslateSampleGenerator:
         dataset = self._create_translate_sample(src_data, tgt_data)
         return dataset
 
+    def generate_eval_dataset(self, dataset):
+        outputs = list()
+        for data in dataset:
+            sample = {'src':data['src'], 'tgt':data['tgt'][0], 'ref':data['tgt']}
+            outputs.append(sample)
+        return outputs
+    
     def _clean_lines(self, lines):
         out_lines = list()
         for line in lines:

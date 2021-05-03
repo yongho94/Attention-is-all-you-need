@@ -17,7 +17,7 @@ oj = os.path.join
 parser = argparse.ArgumentParser()
 
 parser.add_argument('--mode', type=str, default='pycharm_bug')
-parser.add_argument('--data_type', type=str, default='en-de-small',
+parser.add_argument('--data_type', type=str, default='en-de',
                     help='en-de | en-fr | en-de-small')
 parser.add_argument('--max_seq', type=int, default=128)
 parser.add_argument('--tokenizer_type', type=str, default='wpe',
@@ -52,9 +52,15 @@ train_dataset = generator.generate_dataset(src_file=train_raw_src, tgt_file=trai
 val_dataset = generator.generate_dataset(src_file=val_raw_src, tgt_file=val_raw_tgt)
 test_dataset = generator.generate_dataset(src_file=test_raw_src, tgt_file=test_raw_tgt)
 
+val_gen_dataset = generator.generate_eval_dataset(val_dataset)
+test_gen_dataset = generator.generate_eval_dataset(test_dataset)
+
 torch.save(train_dataset, oj(out_data_dir, 'train.torch-pkl'))
 torch.save(val_dataset, oj(out_data_dir, 'val.torch-pkl'))
 torch.save(test_dataset, oj(out_data_dir, 'test.torch-pkl'))
+
+torch.save(val_gen_dataset, oj(out_data_dir, 'val-gen.torch-pkl'))
+torch.save(test_gen_dataset, oj(out_data_dir, 'test-gen.torch-pkl'))
 
 with open(oj(out_data_dir, 'prepro_settings.json'), 'w') as f:
     json.dump(args.__dict__, f)

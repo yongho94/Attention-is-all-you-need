@@ -1,4 +1,5 @@
 import os
+from torch import nn
 import torch
 from torch.utils.data import Dataset
 import random
@@ -28,7 +29,7 @@ class FixedBatchDataset(Dataset):
         return len(self.dataset)
 
     def __getitem__(self, idx):
-        return self.dataset[idx]
+        return { k:torch.tensor(v) for k, v in self.dataset[idx].items()}#torch.tensor(self.dataset[idx])
 
 
 def get_add_pad_func(tokenizer):
@@ -36,8 +37,8 @@ def get_add_pad_func(tokenizer):
         src_list = list()
         tgt_list = list()
         for i in items:
-            src_list.append(tensor(i['src']))
-            tgt_list.append(tensor(i['tgt']))
+            src_list.append(i['src'])
+            tgt_list.append(i['tgt'])
 
         src = pad_sequence(src_list, padding_value=pad_id, batch_first=True)
         tgt = pad_sequence(tgt_list, padding_value=pad_id, batch_first=True)
@@ -135,3 +136,34 @@ class TranslateDataset(Dataset):
 
     def __getitem__(self, idx):
         return self.batched_dataset[idx]
+
+ce_loss = nn.CrossEntropyLoss()
+ce_loss_no_mean = nn.CrossEntropyLoss(reduction='none')
+
+def get_loss(logits, labels, loss_mask=None):
+    B, S = labels.shape
+    losses = ce_loss_no_mean(logits.view(B*S, -1), labels.view(-1)).view(B, S)
+    if loss_mask is None:
+        loss = torch.mean(losses)
+    else:
+        losses = losses * loss_mask
+        loss = torch.mean(torch.sum(losses, axis=-1) / torch.sum(loss_mask, axis=-1))
+    return loss
+
+def gen_func(sample):
+    print(sample)
+    sample = sample[0]
+    enc_input_ids = sample['src'].view(1, -1)
+    enc_att_mask = torch.ones_like(sample['src'], dtype=sample['src'].dtype).view(1, -1)
+    dec_input_ids = sample['tgt'].view(1, -1)
+    dec_att_mask = torch.ones_like(sample['tgt'], dtype=sample['tgt'].dtype).view(1, -1)
+    return {'enc_input':enc_input_ids,
+            'enc_att':enc_att_mask,
+            'dec_input':dec_input_ids,
+            'dec_att':dec_att_mask,
+            'ref':sample['ref']}
+
+
+#i = 1300
+#print(tokenizer.decode(train_dataset[i]['src']))
+#print(tokenizer.decode(train_dataset[i]['tgt']))

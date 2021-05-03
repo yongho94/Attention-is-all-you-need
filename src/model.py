@@ -163,7 +163,7 @@ class EmbeddingLayer(nn.Module):
 
     def forward(self, input_ids):
         seq_len = input_ids.shape[-1]
-        pos_ids = torch.arange(0, seq_len, dtype=input_ids.dtype)
+        pos_ids = torch.arange(0, seq_len, dtype=input_ids.dtype).to(input_ids.device)
         return self.token_embedding(input_ids) + self.pos_embedding(pos_ids)
 
 class Transformer(nn.Module):
@@ -202,3 +202,35 @@ class Transformer(nn.Module):
         vocab_probs = self.softmax(logits)
 
         return {'logits':logits, 'probs':vocab_probs}
+
+    def generate(self, enc_input_ids, dec_input_ids, enc_att_mask, dec_att_mask, eos_id, max_seq=120):
+        enc_input_shape = enc_input_ids.shape
+        dec_input_shape = dec_input_ids.shape
+        enc_att_shape = enc_att_mask.shape
+        dec_att_shape = dec_att_mask.shape
+
+        assert len(dec_input_shape) == 2 and dec_input_shape[1] < max_seq
+        assert len(dec_att_shape) == 2 and dec_att_shape[1] < max_seq
+
+        gen_sentence = list()
+        prob_list = list()
+        for _ in range(max_seq):
+            outputs = self.forward(enc_input_ids, dec_input_ids, enc_att_mask, dec_att_mask)
+            probs = outputs['probs']
+            vocab_probs = probs[:, -1, :]
+
+            vocab_pred = torch.argmax(vocab_probs).view(1, 1)
+            vocab_prob = torch.max(vocab_probs).view(1, 1)
+            gen_sentence.append(vocab_pred.item())
+            prob_list.append(vocab_prob.item())
+
+            next_dec_input_ids = torch.cat( (dec_input_ids, vocab_pred), dim=-1)
+            next_dec_att_mask = torch.cat((dec_att_mask, torch.ones(1, 1, dtype=dec_att_mask.dtype).to(dec_att_mask.device)), dim=-1)
+
+            if vocab_pred.item() == eos_id or len(next_dec_input_ids.view(-1)) > max_seq:
+                break
+            else:
+                dec_input_ids = next_dec_input_ids
+                dec_att_mask = next_dec_att_mask
+
+        return gen_sentence, prob_list
